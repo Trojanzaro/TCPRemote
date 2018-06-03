@@ -55,59 +55,41 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     @Override
     public void onClick(final View v){
-        if(v == btS)
-        {
-            Thread t = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try
-                    {
-                        Socket socket = new Socket(addrTb.getText().toString(),1234);
-                        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+        new Thread(() -> command(((Button)v).getText().toString())).start();
+    }
 
-                        out.write("getStats".getBytes());
+    private void command(String cmd)
+    {
+        try {
+            Socket socket = new Socket(addrTb.getText().toString(), 1234);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 
-                        String responce = "";
-                        String ln;
-                        while((ln = in.readLine()) != null)
-                        {
-                            responce += ln+'\n';
-                        }
-                        printToast(responce.substring(0, responce.length()-1));
-                        socket.close();
-                    }
-                    catch(IOException ex){
-                        printToast(ex.getMessage());
-                    }
+            if(cmd.equals("STATUS"))
+            {
+                out.write(cmd.getBytes());
+
+                StringBuilder responce = new StringBuilder();
+                String ln;
+                while((ln = in.readLine()) != null)
+                {
+                    responce.append(ln).append('\n');
                 }
-            });
-            t.start();
+                printToast(responce.substring(0, responce.length()-1));
+                socket.close();
+            }
+            else
+            {
+                out.write(cmd.getBytes());
+                out.flush();
+                out.close();
+                socket.close();
+            }
         }
-        else
+        catch(IOException ex)
         {
-            Thread t = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    String command = "cmd:" + ((Button)v).getText();
-                    try
-                    {
-                        Socket socket = new Socket(addrTb.getText().toString(),1234);
-                        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-                        out.write(command.getBytes());
-                        out.flush();
-                        out.close();
-                        socket.close();
-                    }
-                    catch(IOException ex)
-                    {
-                        printToast(ex.getMessage());
-                    }
-                }
-            });
-            t.start();
+            printToast(ex.getMessage());
         }
-
     }
 
     private void printToast(final String message)
