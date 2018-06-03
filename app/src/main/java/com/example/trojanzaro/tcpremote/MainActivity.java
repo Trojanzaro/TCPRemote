@@ -2,29 +2,36 @@ package com.example.trojanzaro.tcpremote;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends Activity implements View.OnClickListener {
+
+public class MainActivity extends Activity implements View.OnClickListener, AdapterView.OnItemSelectedListener {
+
+    String filePath = "TCPRemoteAddrList.txt";
+    File addrFile = new File(filePath);
+
     Button bt1;
     Button bt2;
     Button bt3;
@@ -34,18 +41,16 @@ public class MainActivity extends Activity implements View.OnClickListener {
     Button btOn;
     Button btOff;
     Button btS;
+    Button remAddr;
     Button addAddr;
-    //EditText addrTb;
     Spinner addrTb;
-
-    File addrListFile = new File("./TCORemoteAddrList");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        //addrTb = findViewById(R.id.editText);
         addrTb = findViewById(R.id.spinner);
 
         bt1 = findViewById(R.id.button1);
@@ -58,6 +63,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         btOff = findViewById(R.id.buttonOff);
         btS = findViewById(R.id.buttonS);
         addAddr = findViewById(R.id.buttonAdd);
+        remAddr = findViewById(R.id.buttonRem);
 
         addAddr.setOnClickListener(this);
         bt1.setOnClickListener(this);
@@ -69,36 +75,19 @@ public class MainActivity extends Activity implements View.OnClickListener {
         btOn.setOnClickListener(this);
         btOff.setOnClickListener(this);
         btS.setOnClickListener(this);
+        remAddr.setOnClickListener(this);
+        addrTb.setOnItemSelectedListener(this);
+        listAppended();
+    }
 
-        if(addrListFile.exists())
-        {
-            List<String> addrList = new ArrayList<>();
-            try {
-                InputStream inputStream = this.openFileInput("./TCORemoteAddrList");
-                BufferedReader inList = new BufferedReader(new InputStreamReader(new BufferedInputStream(inputStream)));
-                String ln = "";
-                while((ln = inList.readLine()) != null)
-                {
-                    addrList.add(ln);
-                }
-                inList.close();
-            } catch (IOException e) {
-                printToast(e.getMessage());
-            }
-            ArrayAdapter<String> dataAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, addrList);
+    @Override
+    public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+        parent.getItemAtPosition(pos);
+    }
 
-            dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+    @Override
+    public void onNothingSelected(AdapterView<?> parent) {
 
-            addrTb.setAdapter(dataAdapter);
-        }
-        else
-        {
-            try {
-                addrListFile.createNewFile();
-            } catch (IOException e) {
-                printToast(e.getMessage());
-            }
-        }
     }
 
     @Override
@@ -109,7 +98,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
             builder.setTitle("Add new Address");
 
             final EditText input = new EditText(this);
-            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            input.setInputType(InputType.TYPE_CLASS_TEXT);
             builder.setView(input);
 
             builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -118,15 +107,16 @@ public class MainActivity extends Activity implements View.OnClickListener {
                     String inputText = input.getText().toString();
                     if(!inputText.equals(""))
                     {
-                        String m_Text = input.getText().toString() + "\n";
+                        String m_Text = input.getText().toString() + System.getProperty("line.separator");
                         try {
-                            FileOutputStream addrOut = new FileOutputStream(addrListFile);
+                            FileOutputStream addrOut = openFileOutput(filePath, Context.MODE_APPEND);
                             addrOut.write(m_Text.getBytes());
                             addrOut.close();
                         } catch (IOException e) {
                             printToast(e.getMessage());
                         }
                     }
+                    listAppended();
                 }
             });
             builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -138,6 +128,40 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
             builder.show();
         }
+        else if(v == remAddr)
+        {
+            //TODO: Fix the address removing function
+            String addrToRem = addrTb.getSelectedItem().toString();
+            File tempFile = new File("myTempFile.txt");
+            try
+            {
+                FileOutputStream writerStream = openFileOutput(tempFile.getPath(), Context.MODE_PRIVATE);
+                BufferedWriter writer  = new BufferedWriter(new OutputStreamWriter(writerStream));
+
+                InputStreamReader inputStream = new InputStreamReader(openFileInput(filePath));
+                BufferedReader reader = new BufferedReader(inputStream);
+
+                String currentLine;
+                while((currentLine = reader.readLine()) != null) {
+                    String trimmedLine = currentLine.trim();
+                    if(trimmedLine.equals(addrToRem)) continue;
+                    writer.write(currentLine + System.getProperty("line.separator"));
+                }
+                writer.close();
+                reader.close();
+
+                writerStream.close();
+                inputStream.close();
+
+                boolean successfulDelete = addrFile.getAbsoluteFile().delete();
+                boolean successfulReplace = tempFile.renameTo(addrFile);
+                System.out.println();
+            }catch(IOException ex)
+            {
+                printToast(ex.getMessage());
+            }
+            listAppended();
+        }
         else
         {
             new Thread(() -> command(((Button)v).getText().toString())).start();
@@ -147,7 +171,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private void command(String cmd)
     {
         try {
-            Socket socket = new Socket(addrTb.getSelectedItem().toString(), 1234);
+            String address = addrTb.getSelectedItem().toString() == null ? "" : addrTb.getSelectedItem().toString();
+            Socket socket = new Socket(address, 1234);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
 
@@ -171,11 +196,35 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 out.close();
                 socket.close();
             }
+            printToast("Successfull command send");
         }
         catch(IOException ex)
         {
             printToast(ex.getMessage());
         }
+    }
+
+    private void listAppended()
+    {
+        List<String> addrList = new ArrayList<>();
+        try {
+            InputStreamReader inputStream = new InputStreamReader(openFileInput(filePath));
+            BufferedReader inList = new BufferedReader(inputStream);
+            String ln;
+            while((ln = inList.readLine()) != null)
+            {
+                addrList.add(ln);
+            }
+            inList.close();
+        } catch (IOException e) {
+            printToast(e.getMessage());
+        }
+
+        ArrayAdapter<String> dataAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, addrList);
+
+        dataAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        addrTb.setAdapter(dataAdapter);
     }
 
     private void printToast(final String message)
