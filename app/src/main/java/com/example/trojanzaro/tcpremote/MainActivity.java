@@ -135,7 +135,7 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
             File tempFile = new File("myTempFile.txt");
             try
             {
-                FileOutputStream writerStream = openFileOutput(tempFile.getPath(), Context.MODE_PRIVATE);
+                FileOutputStream writerStream = openFileOutput(tempFile.getPath(), Context.MODE_APPEND);
                 BufferedWriter writer  = new BufferedWriter(new OutputStreamWriter(writerStream));
 
                 InputStreamReader inputStream = new InputStreamReader(openFileInput(filePath));
