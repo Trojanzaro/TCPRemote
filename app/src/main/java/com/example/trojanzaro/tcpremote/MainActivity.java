@@ -29,7 +29,7 @@ import java.util.List;
 
 public class MainActivity extends Activity implements View.OnClickListener, AdapterView.OnItemSelectedListener {
 
-    String filePath = "TCPRemoteAddrList.txt";
+    String filePath = "TCPRemoteAddrList";
     File addrFile = new File(filePath);
 
     Button bt1;
@@ -109,6 +109,7 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
                     {
                         String m_Text = input.getText().toString() + System.getProperty("line.separator");
                         try {
+                            if(!addrFile.exists()) addrFile.mkdirs();
                             FileOutputStream addrOut = openFileOutput(filePath, Context.MODE_APPEND);
                             addrOut.write(m_Text.getBytes());
                             addrOut.close();
@@ -132,10 +133,10 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
         {
             //TODO: Fix the address removing function
             String addrToRem = addrTb.getSelectedItem().toString();
-            File tempFile = new File("myTempFile.txt");
+            File tempFile = new File("myTempFile");
             try
             {
-                FileOutputStream writerStream = openFileOutput(tempFile.getPath(), Context.MODE_APPEND);
+                FileOutputStream writerStream = openFileOutput(tempFile.getPath(), Context.MODE_PRIVATE);
                 BufferedWriter writer  = new BufferedWriter(new OutputStreamWriter(writerStream));
 
                 InputStreamReader inputStream = new InputStreamReader(openFileInput(filePath));
@@ -153,9 +154,8 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
                 writerStream.close();
                 inputStream.close();
 
-                boolean successfulDelete = addrFile.getAbsoluteFile().delete();
-                boolean successfulReplace = tempFile.renameTo(addrFile);
-                System.out.println();
+                deleteFile(filePath);
+                tempFile.renameTo(addrFile);
             }catch(IOException ex)
             {
                 printToast(ex.getMessage());
@@ -204,8 +204,8 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
         }
     }
 
-    private void listAppended()
-    {
+    private void listAppended() {
+        if(!addrFile.exists()) addrFile.mkdirs();
         List<String> addrList = new ArrayList<>();
         try {
             InputStreamReader inputStream = new InputStreamReader(openFileInput(filePath));
@@ -229,6 +229,6 @@ public class MainActivity extends Activity implements View.OnClickListener, Adap
 
     private void printToast(final String message)
     {
-        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
+        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
     }
 }
